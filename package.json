@@ -1,0 +1,21 @@
+{
+  "name": "nodan",
+  "version": "1.0.0",
+  "description": "login kaiju",
+  "type": "module",
+  "main": "main.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "watch": "tsc --watch -p tsconfig.json",
+    "start": "node ./dist/main.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "express": "^4.18.1",
+    "ts-command-line-args": "^2.3.1",
+    "ts-loader": "^9.3.0",
+    "ts-node": "^10.8.1",
+    "typescript": "^4.7.4"
+  }
+}
