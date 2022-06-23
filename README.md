@@ -1,4 +1,4 @@
-### Brute force https login forms
+### Command line node/typescript tool to brute force https login forms
 
 ```
                            <\              _
