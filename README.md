@@ -19,6 +19,12 @@ Brute force https login forms
                           \\      WWW
                           MMM
 ```
+### Running:
+- run `npm build`, or `npm watch` (watching for changes) to build
+- run `npm start`
+
+Command should look like, e.g.
 
 e.g.
 `npm run start -- -u users.txt -p passwords.txt -t https://example.com/login  -f user:{USER} pass:{PASS} extra_param:myParam`
+
