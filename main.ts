@@ -7,13 +7,27 @@ interface Arguments {
   passFile: string; // password file path
   target: string; // url to stomp
   formFields: string[]; // form data to send, of form key:value
+  failureMessage?: string;
+  failureStatus?: number;
+  interval?: number;
 }
 
-export const { userFile, passFile, target, formFields } = parse<Arguments>({
+export const {
+  userFile,
+  passFile,
+  target,
+  formFields,
+  failureMessage,
+  failureStatus,
+  interval,
+} = parse<Arguments>({
   userFile: { type: String, alias: "u" },
   passFile: { type: String, alias: "p" },
   target: { type: String, alias: "t" },
   formFields: { type: String, multiple: true, alias: "f" },
+  failureMessage: { type: String, optional: true, alias: "m" },
+  failureStatus: { type: Number, optional: true, alias: "s" },
+  interval: { type: Number, optional: true, alias: "i" },
 });
 
 type Meta = {
@@ -24,6 +38,12 @@ type Meta = {
 type FormObject = {
   key: string;
   value: string;
+};
+
+type Result = {
+  status: number;
+  statusText: string;
+  json: string;
 };
 
 const meta: Meta = {
@@ -60,7 +80,21 @@ const getFormObject = (formField: string): FormObject => {
 
 const formObjects = formFields.map((formField) => getFormObject(formField));
 
-const post = async (target: string, formObjects: FormObject[]) => {
+const sleep = async (ms: number) => {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+};
+
+const promisify = <V>(value: V): Promise<V> => {
+  return new Promise((resolve) => resolve(value));
+};
+
+const post = async (
+  target: string,
+  formObjects: FormObject[],
+  timeout?: number
+): Promise<Result> => {
   const data = new URLSearchParams();
 
   formObjects.forEach((formObject) => {
@@ -68,7 +102,11 @@ const post = async (target: string, formObjects: FormObject[]) => {
     data.append(key, value);
   });
 
-  const response = await fetch(target, {
+  if (timeout) {
+    await sleep(timeout);
+  }
+
+  return fetch(target, {
     method: "POST", // *GET, POST, PUT, DELETE, etc.
     mode: "cors", // no-cors, *cors, same-origin
     cache: "no-cache", // *default, no-cache, reload, force-cache, only-if-cached
@@ -80,27 +118,68 @@ const post = async (target: string, formObjects: FormObject[]) => {
     redirect: "follow", // manual, *follow, error
     referrerPolicy: "no-referrer", // no-referrer, *no-referrer-when-downgrade, origin, origin-when-cross-origin, same-origin, strict-origin, strict-origin-when-cross-origin, unsafe-url
     body: data, // body data type must match "Content-Type" header
-  });
-
-  return response.json(); // parses JSON response into native JavaScript objects
+  })
+    .then((response) => {
+      const { status, statusText } = response;
+      return Promise.all([
+        promisify(status),
+        promisify(statusText),
+        response.json(),
+      ]);
+    })
+    .then((promises) => {
+      const [status, statusText, json] = promises;
+      console.log({ status, statusText, json });
+      return { status, statusText, json } as Result;
+    });
 };
 
 const { users, passwords } = meta;
 
 console.log(users, passwords);
 
-users.forEach((user) => {
-  passwords.forEach((password) => {
-    const replacedFormObjects = formObjects.map((formObject) => {
-      formObject.value = formObject.value
+// Create form object
+const forms = users.flatMap((user) => {
+  return passwords.map((password) => {
+    return formObjects.map((formObject) => {
+      const newForm = { ...formObject };
+      newForm.value = formObject.value
         .replace("{USER}", user)
         .replace("{PASS}", password);
-
-      return formObject;
+      return newForm;
     });
-    console.log(replacedFormObjects);
-    post(target, replacedFormObjects)
-      .then((result) => console.log(result))
-      .catch((e) => console.log(e));
   });
 });
+
+const formPromises = forms.map((form, i) => {
+  const timeout = interval ? i * interval : undefined;
+  return post(target, form, timeout).catch((e) => console.log(e));
+});
+
+// TODO: Retry attempts that fail?
+
+// users.forEach((user) => {
+//   passwords.forEach((password) => {
+//     const replacedFormObjects = formObjects.map((formObject) => {
+//       formObject.value = formObject.value
+//         .replace("{USER}", user)
+//         .replace("{PASS}", password);
+
+//       return formObject;
+//     });
+//     // console.log(replacedFormObjects);
+//     promises
+//       .push(post(target, replacedFormObjects))
+//       .then((result) => {
+//         const { status, statusText, json } = result;
+//         if (failureStatus) {
+//           if (status !== failureStatus) {
+//             console.log("success");
+//             console.log({ status, statusText, json });
+//           }
+//         }
+//         // console.log({ status, statusText, json });
+//       })
+//       .catch((e) => console.log(e));
+//   });
+// });
